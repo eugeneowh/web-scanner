@@ -22,7 +22,7 @@ echo =========== starting port enumeration ===========
 nmap -Pn -p- $url > ports.txt
 echo saved to ./$folder/ports.txt
 echo
-echo =========== subdomain enum done ===========
+echo =========== port enum done ===========
 echo
 
 
