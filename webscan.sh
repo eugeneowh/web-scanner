@@ -23,7 +23,7 @@ echo
 #==========================start of function declaration==========================
 #port enumeration - check if any other ports open (quick scan)
 port_scan() {
-	
+	#TODO - auto full scan specific port: get found ports, and scan them with -sC and -sV
 	echo -=-=-=-=-=-=-=- starting port enumeration -=-=-=-=-=-=-=-
 	if [ $1 == fast ]; then
 		nmap -Pn -T5 $ip_addr -o ports.txt #scan only top 1000
