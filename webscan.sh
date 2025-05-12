@@ -13,12 +13,14 @@ done
 
 #initialising
 echo target url: $url
+domain=$(echo "$url" | awk -F'//' '{print $2}' | awk -F'/' '{print $1}')
+echo "Domain: $domain"
 echo creating folder $folder
 mkdir $folder
 echo
 
 #port enumeration - check if any other ports open (quick scan)
-echo =========== starting port enumeration ===========
+echo -=-=-=-=-=-=-=- starting port enumeration -=-=-=-=-=-=-=-
 nmap -Pn -p- $url > ports.txt
 echo saved to ./$folder/ports.txt
 echo
@@ -27,7 +29,7 @@ echo
 
 
 #check robots.txt
-echo =========== checking robots.txt ===========
+echo -=-=-=-=-=-=-=- checking robots.txt -=-=-=-=-=-=-=-
 respond=$(curl -sLw "%{http_code}" $url/robots.txt -o ./$folder/full_robots.txt)
 if [[ $respond == 200 ]];
 	then
@@ -38,29 +40,35 @@ if [[ $respond == 200 ]];
 		echo no robots.txt found
 fi
 echo =========== robots.txt enum done ===========
+echo ''
 
-#subdomain enumeration - runs dnsenum
-echo =========== starting subdomain enumeration ===========
-
-dnsenum --enum $url -r -f /usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt > ./$folder/dnsenum.txt
-echo saved to ./$folder/dnsenum.txt
+#directory enumeration - runs ffuf
+echo -=-=-=-=-=-=-=- starting directory enumeration -=-=-=-=-=-=-=-
+ffuf -u $url/FUZZ -w ./$folder/robots.txt -o ./$folder/robots_directory.txt #check what is found in robots.txt is accessible
+ffuf -u $url/FUZZ -w /usr/share/wordlists/seclists/Discovery/Web-Content/raft-large-directories.txt -o ./$folder/directory.txt #check common directories
+echo saved to ./$folder/directory.txt
 echo
-echo =========== subdomain enum done ===========
+echo =========== vhost directory done ===========
 echo
 
-#vhost enumeration - runs gobuster
-echo =========== starting vhost enumeration ===========
-gobuster vhost -u $url -w /usr/share/wordlist/seclists/Discovery/DNS/subdomains-top1million-110000.txt --append-domain > ./$folder/vhost.txt
+#vhost enumeration - runs ffuf
+echo -=-=-=-=-=-=-=- starting vhost enumeration -=-=-=-=-=-=-=-
+ffuf -u $url -H HOST:FUZZ.$domain -w /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-110000.txt -o ./$folder/vhost.txt #check common vhost
 echo saved to ./$folder/vhost.txt
 echo
 echo =========== vhost enum done ===========
 echo
 
-#directory enumeration - runs ffuf
-echo =========== starting directory enumeration ===========
-ffuf -u $url -w ./$folder/robots.txt > ./$folder/directory.txt #check what is found in robots.txt is accessible
-ffuf -u $url -w /usr/share/wordlists/seclists/Discovery/Web-Content/raft-large-directories.txt >> ./$folder/directory.txt #check common directories
-echo saved to ./$folder/directory.txt
+#subdomain enumeration - runs ffuf
+echo -=-=-=-=-=-=-=- starting subdomain enumeration -=-=-=-=-=-=-=-
+ffuf -u http://FUZZ.$domain -w /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-110000.txt -o ./$folder/subdomain.txt #check common subdomains
+echo saved to ./$folder/subdomain.txt
 echo
-echo =========== vhost enum done ===========
+echo =========== subdomain enum done ===========
 echo
+
+
+
+
+
+
