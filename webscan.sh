@@ -1,11 +1,12 @@
 #! /bin/bash
 
 #getting flags
-while getopts 'u:o:' flag
+while getopts 'u:o:t:' flag
 do
 	case ${flag} in
 		u) url=${OPTARG} ;; #specify url of target
 		o) folder=${OPTARG} ;; #specify folder to save to
+		t) ip_addr=${OPTARG} ;;
 		*) echo invalid flag ;;
 	esac
 done
@@ -132,7 +133,9 @@ subdomain() {
 #main
 read -e -p "Do you want to run port scan (top 1000 TCP only)? [Y/n]: " -n 1 -r
 if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
-	read -e -p "Enter IP address to scan: " ip_addr
+	if [[ -z $ip_addr ]] then
+		read -e -p "Enter IP address to scan: " ip_addr
+	fi
 	port_scan fast
 
 : <<'background nmap'
@@ -157,6 +160,7 @@ if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
 				echo "skipping..."
 		esac
 background nmap
+
 else
 	echo "Skipping port scan..."
 fi
