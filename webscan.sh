@@ -14,21 +14,30 @@ done
 
 #initialising
 robots=0
-echo target url: $url
-domain=$(echo "$url" | awk -F'//' '{print $2}' | awk -F'/' '{print $1}')
-echo "Domain: $domain"
-echo creating folder $folder
-mkdir $folder
+
+if [ -z $url ]; then
+	echo no url defined
+else
+	echo target url: $url
+	domain=$(echo "$url" | awk -F'//' '{print $2}' | awk -F'/' '{print $1}')
+	folder=$domain
+	echo "Domain: $domain"
+	echo creating folder $folder
+	mkdir $folder
+fi
+
 echo
 
 #==========================start of function declaration==========================
 #port enumeration - check if any other ports open (quick scan)
 port_scan() {
-	#TODO - auto full scan specific port: get found ports, and scan them with -sC and -sV
 	echo -=-=-=-=-=-=-=- starting port enumeration -=-=-=-=-=-=-=-
 	if [ $1 == fast ]; then
 		nmap -Pn -T5 $ip_addr -o ports.txt #scan only top 1000
-		echo saved to ./$folder/ports.txt
+		echo full nmap saved to ./$folder/ports.txt
+		grep -i "open" ./$folder/ports.txt 2>&1 | tee ./$folder/open_ports.txt
+		echo only open ports saved to ./$folder/open_ports.txt
+		 
 	elif [ $1 == fast_all ]; then
 		nmap -Pn -T5 -p- $ip_addr -o ports.txt #scan all ports but do not run script
 		echo saved to ./$folder/ports.txt
@@ -39,7 +48,13 @@ port_scan() {
 		nmap -sC -sV -sU -p- -T5 $ip_addr -o ports_udp.txt #scan all udp and run all checks (will take very long)
 		echo saved to ./$folder/ports_udp.txt
 	fi
+	
+	echo -=-=-=-=-=-=-=- scanning found ports in detail -=-=-=-=-=-=-=-
+	open_ports=$(grep -oE '[0-9]+' ./$folder/open_ports.txt | tr '\n' ',' | sed 's/,$//')
+	nmap -sC -sV -T5 -p$open_ports $ip_addr -o full_found_ports.txt 
+	
 	echo =========== port enum done ===========
+	
 	echo
 
 }
@@ -74,7 +89,17 @@ directory() {
 	echo
 }
 
+#vhost enumeration - runs gobuster
+vhost() {
+	echo -=-=-=-=-=-=-=- starting vhost enumeration -=-=-=-=-=-=-=-
+	gobuster vhost --timeout 5s -u $url -w /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-110000.txt -o ./$folder/vhost.txt #check common vhost
+	echo saved to ./$folder/vhost.txt
+	echo =========== vhost enum done ===========
+	echo
+}
+
 #vhost enumeration - runs ffuf
+: <<'ffuf vhost'
 vhost() {
 	echo -=-=-=-=-=-=-=- starting vhost enumeration -=-=-=-=-=-=-=-
 	ffuf -u $url -H HOST:FUZZ.$domain -w /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-110000.txt -t 20 -timeout 2 -maxtime 2  #check filter char first
@@ -100,9 +125,19 @@ vhost() {
 	echo =========== vhost enum done ===========
 	echo
 }
+ffuf vhost
 
+#subdomain enumeration - runs gobuster
+subdomain() {
+	echo -=-=-=-=-=-=-=- starting subdomain enumeration -=-=-=-=-=-=-=-
+	gobuster dns --timeout 5s -d $domain -w /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-110000.txt -o ./$folder/subdomain.txt #check common subdomains
+	echo saved to ./$folder/subdomain.txt
+	echo =========== subdomain enum done ===========
+	echo
+}
 
 #subdomain enumeration - runs ffuf
+: <<'ffuf subdomain'
 subdomain() {
 	echo -=-=-=-=-=-=-=- starting subdomain enumeration -=-=-=-=-=-=-=-
 	ffuf -u http://FUZZ.$domain -w /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-110000.txt -t 20 -timeout 2 -maxtime 5 #check filter char first
@@ -127,7 +162,7 @@ subdomain() {
 	echo =========== subdomain enum done ===========
 	echo
 }
-
+ffuf subdomain
 #==========================end of function declaration==========================
 
 #main
@@ -137,6 +172,18 @@ if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
 		read -e -p "Enter IP address to scan: " ip_addr
 	fi
 	port_scan fast
+
+#add url if not yet
+if [ -z $url ]; then
+	read -e -p "Do you want to add a url? Remember to add them to /etc/hosts first! [Y/n]: " -n 1 -r
+	if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+		read -e -p "Enter full url in form http://<URL>: " url
+		echo target url: $url
+		domain=$(echo "$url" | awk -F'//' '{print $2}' | awk -F'/' '{print $1}')
+		folder=$domain
+		echo "Domain: $domain"
+	fi
+fi
 
 : <<'background nmap'
 	#### TODO - future works: to run full nmap scan in background without affecting other commands
