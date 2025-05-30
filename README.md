@@ -1,7 +1,7 @@
 # web-scanner
 for CTF/boxes, to automate discovery phase of web contents
 
-usage: ./web-automation.sh -t [target-IP] -u http://[target url]
+```usage: ./web-automation.sh -t [target-IP] -u http://[target url]```
 
 #TODO
 [edit 31 05 25]
